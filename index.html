@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>CRM — Учебный центр</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Validation: inline field errors ── */
+.input-error {
+  border-color: var(--red, #dc2626) !important;
+  box-shadow: 0 0 0 2px rgba(220,38,38,.15) !important;
+}
+.field-error {
+  color: var(--red, #dc2626);
+  font-size: 11px;
+  margin-top: 4px;
+  display: none;
+}
+/* ── Attendance 3-state buttons ── */
+.att-btn { width:32px;height:32px;border-radius:8px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.15s;font-size:14px; }
+.att-btn.present { background:#d1fae5;border-color:#10b981;color:#059669; }
+.att-btn.absent  { background:#fee2e2;border-color:#ef4444;color:#dc2626; }
+.att-btn.unmarked{ background:var(--surface2);border-color:var(--border);color:var(--muted); }
+.att-btn:hover   { opacity:.8;transform:scale(1.08); }
+/* ── badge b-yellow (missing from original CSS) ── */
+.badge.b-yellow  { background:rgba(217,119,6,.15);color:#b45309; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-badge">CRM v6.0</div>
+      <div class="auth-title">Учебный центр</div>
+      <div class="auth-sub">Система управления обучением</div>
+    </div>
+    <div id="auth-err" class="auth-err"></div>
+    <div class="form-group"><label class="form-label">Логин</label><input class="form-input" id="l-user" placeholder="Введите логин" autocomplete="username"></div>
+    <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" type="password" id="l-pass" placeholder="Введите пароль" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()"><i class="fa-solid fa-right-to-bracket"></i> Войти</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app hidden" id="appContainer">
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-badge">CRM v6.0</div>
+      <div class="logo-title">Учебный центр</div>
+      <div class="logo-clock" id="clock-display">00:00:00</div>
+    </div>
+    <nav>
+      <div class="nav-section">Главное</div>
+      <div class="nav-item active" onclick="goPage('dashboard',this,'Панель управления')"><span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span>Панель</div>
+      <div class="nav-item" id="nav-groups" onclick="goPage('groups',this,'Группы')"><span class="nav-icon"><i class="fa-solid fa-people-group"></i></span>Группы<span class="nav-badge" id="nb-groups">0</span></div>
+      <div class="nav-item" id="nav-schedule-nav" onclick="goPage('schedule',this,'Расписание')"><span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>Расписание</div>
+      <div class="nav-item" id="nav-journal" onclick="goPage('journal',this,'Журнал')"><span class="nav-icon"><i class="fa-solid fa-book-open"></i></span>Журнал</div>
+      <div class="nav-section" id="nav-section-management">Управление</div>
+      <div class="nav-item" id="nav-students" onclick="goPage('students',this,'Студенты')"><span class="nav-icon"><i class="fa-solid fa-user-graduate"></i></span>Студенты<span class="nav-badge" id="nb-students">0</span></div>
+      <div class="nav-item" id="nav-admin-group" onclick="goPage('teachers',this,'Преподаватели')"><span class="nav-icon"><i class="fa-solid fa-chalkboard-user"></i></span>Преподаватели<span class="nav-badge" id="nb-teachers">0</span></div>
+      <div class="nav-item" id="nav-courses" onclick="goPage('courses',this,'Курсы')"><span class="nav-icon"><i class="fa-solid fa-book"></i></span>Курсы</div>
+      <div class="nav-section" id="nav-section-analytics">Аналитика</div>
+      <div class="nav-item" id="nav-finance" onclick="goPage('finance',this,'Финансы')"><span class="nav-icon"><i class="fa-solid fa-money-bill-wave"></i></span>Финансы</div>
+      <div class="nav-item" id="nav-archive" onclick="goPage('archive',this,'Архив')"><span class="nav-icon"><i class="fa-solid fa-box-archive"></i></span>Архив</div>
+      <div class="nav-item" id="nav-about" onclick="goPage('about',this,'О нас')"><span class="nav-icon"><i class="fa-solid fa-building-columns"></i></span><span id="nav-about-label">О нас</span></div>
+      <div class="nav-item" onclick="goPage('myprofile',this,'Мой профиль')"><span class="nav-icon"><i class="fa-solid fa-circle-user"></i></span>Профиль</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info-card" onclick="goPage('myprofile',null,'Мой профиль')">
+        <div class="user-av" id="user-av">А</div>
+        <div style="flex:1;min-width:0"><div class="user-name-sm" id="user-name">Загрузка...</div><div class="role-pill" id="user-role-pill"></div></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-full" onclick="doLogout()" style="color:rgba(255,255,255,.8);border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);font-size:12px;flex:1"><i class="fa-solid fa-right-from-bracket"></i> Выход</button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему"></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="hamburger" onclick="toggleSidebar()">☰</div>
+      <div class="topbar-title" id="topbar-title">Панель управления</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="p-dashboard">
+        <div class="sec-header">
+          <div><div class="sec-title" id="dash-greeting">Добро пожаловать!</div><div class="sec-sub" id="dash-date"></div></div>
+        </div>
+        <div id="dashboard-content"><div style="text-align:center;padding:40px;color:var(--muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div></div>
+      </div>
+
+      <!-- GROUPS -->
+      <div class="page" id="p-groups">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-people-group" style="color:var(--accent)"></i> Группы</div></div>
+          <div id="groups-header-btn"></div>
+        </div>
+        <div class="filter-row">
+          <div class="chip active" onclick="filterGroups('all',this)">Все курсы</div>
+          <div id="course-filter-chips" style="display:contents"></div>
+        </div>
+        <div class="c-grid" id="groups-grid"></div>
+      </div>
+
+      <!-- GROUP DETAIL -->
+      <div class="page" id="p-group-detail">
+        <div class="sec-header">
+          <div>
+            <button class="btn btn-sm btn-outline" onclick="goPage('groups',null,'Группы')" style="margin-bottom:8px"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+            <div class="sec-title" id="gd-title">Группа</div>
+            <div class="sec-sub" id="gd-sub"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" id="gd-header-btns"></div>
+        </div>
+        <div id="group-detail-content"></div>
+      </div>
+
+      <!-- SCHEDULE -->
+      <div class="page" id="p-schedule">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent)"></i> Расписание</div></div>
+        </div>
+        <div class="filter-row" id="schedule-filter-row"></div>
+        <div class="schedule-week" id="schedule-week"></div>
+      </div>
+
+      <!-- JOURNAL -->
+      <div class="page" id="p-journal">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-book-open" style="color:var(--accent)"></i> Журнал посещаемости</div></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="form-input" id="journal-group" style="width:190px" onchange="renderJournal()"><option value="">— Выберите группу —</option></select>
+            <input type="date" class="form-input" id="journal-date" style="width:150px" onchange="loadJournalData()">
+          </div>
+        </div>
+        <div id="journal-content"></div>
+      </div>
+
+      <!-- STUDENTS -->
+      <div class="page" id="p-students">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-user-graduate" style="color:var(--accent)"></i> Студенты</div><div class="sec-sub" id="st-subtitle"></div></div>
+          <div id="st-header-btn"></div>
+        </div>
+        <div class="filter-row">
+          <div class="chip active" onclick="filterStudents('all',this)">Все</div>
+        </div>
+        <div id="st-empty" class="empty" style="display:none">
+          <div class="empty-icon"><i class="fa-solid fa-user-graduate" style="font-size:52px;color:var(--muted)"></i></div>
+          <div class="empty-msg">Нет студентов</div>
+        </div>
+        <div class="table-wrap" id="st-table-wrap">
+          <table><thead><tr><th>Студент</th><th>Логин</th><th>Телефон</th><th>Опекун</th><th>Дата рожд.</th><th>Срок обуч.</th><th></th></tr></thead>
+          <tbody id="students-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- TEACHERS -->
+      <div class="page" id="p-teachers">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-chalkboard-user" style="color:var(--accent)"></i> Преподаватели</div></div>
+          <button class="btn btn-primary" onclick="openUserModal('teacher')"><i class="fa-solid fa-user-plus"></i> Добавить</button>
+        </div>
+        <div class="c-grid" id="teachers-grid"></div>
+      </div>
+
+      <!-- COURSES -->
+      <div class="page" id="p-courses">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-book" style="color:var(--accent)"></i> Курсы</div></div>
+          <button class="btn btn-primary" onclick="openCourseModal()"><i class="fa-solid fa-plus"></i> Добавить курс</button>
+        </div>
+        <div class="c-grid" id="courses-grid"></div>
+      </div>
+
+      <!-- FINANCE -->
+      <div class="page" id="p-finance">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-money-bill-wave" style="color:var(--accent)"></i> Финансы</div></div>
+          <input type="month" class="form-input" id="finance-month" style="width:160px" onchange="renderFinance()">
+        </div>
+        <div id="finance-content"></div>
+      </div>
+
+      <!-- ARCHIVE -->
+      <div class="page" id="p-archive">
+        <div class="sec-header"><div><div class="sec-title"><i class="fa-solid fa-box-archive" style="color:var(--accent)"></i> Архив</div></div></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Студент</th><th>Логин</th><th>Телефон</th><th>Опекун</th><th>Дата рожд.</th><th>Окончил группу</th><th>Добавлен</th><th>Действия</th></tr></thead>
+          <tbody id="archive-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ABOUT -->
+      <div class="page" id="p-about">
+        <div class="sec-header">
+          <div><div class="sec-title"><i class="fa-solid fa-building-columns" style="color:var(--accent)"></i> О нас — <span id="about-org-name">Учебный центр</span></div></div>
+          <div id="about-header-btns"></div>
+        </div>
+        <div id="about-content"></div>
+      </div>
+
+      <!-- MY PROFILE -->
+      <div class="page" id="p-myprofile">
+        <div class="sec-header"><div><div class="sec-title"><i class="fa-solid fa-circle-user" style="color:var(--accent)"></i> Мой профиль</div></div></div>
+        <div id="profile-content"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <div class="bn-item active" id="bn-dashboard" onclick="goPage('dashboard',null,'Панель')"><i class="fa-solid fa-chart-pie"></i><span>Главная</span></div>
+    <div class="bn-item" id="bn-groups"    onclick="goPage('groups',null,'Группы')"><i class="fa-solid fa-people-group"></i><span>Группы</span></div>
+    <div class="bn-item" id="bn-journal"   onclick="goPage('journal',null,'Журнал')"><i class="fa-solid fa-book-open"></i><span>Журнал</span></div>
+    <div class="bn-item" id="bn-students"  onclick="goPage('students',null,'Студенты')"><i class="fa-solid fa-user-graduate"></i><span>Студенты</span></div>
+    <div class="bn-item" id="bn-myprofile" onclick="goPage('myprofile',null,'Профиль')"><i class="fa-solid fa-circle-user"></i><span>Профиль</span></div>
+  </div>
+</nav>
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- ═══ MODALS ═══════════════════════════════════ -->
+
+<!-- USER -->
+<div class="overlay" id="ov-user">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title" id="user-modal-title">Добавить</div><div class="modal-close" onclick="closeModal('user')">✕</div></div>
+    <input type="hidden" id="user-id"><input type="hidden" id="user-role-hidden">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Имя *</label><input class="form-input" id="user-fname" placeholder="Имя"></div>
+      <div class="form-group"><label class="form-label">Фамилия</label><input class="form-input" id="user-lname" placeholder="Фамилия"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="user-phone" placeholder="+996 ..."></div>
+      <div class="form-group" id="user-guardian-group"><label class="form-label">Родители (Опекун)</label><input class="form-input" id="user-guardian" placeholder="ФИО опекуна (если несовершеннолетний)"></div>
+    <div class="form-group" id="user-guardian-phone-group"><label class="form-label">Родители (номер телефона)</label><input class="form-input" id="user-guardian-phone" placeholder="+996 ..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Дата рождения</label><input class="form-input" type="date" id="user-birth"></div>
+      <div class="form-group" id="user-months-group">
+        <label class="form-label"><i class="fa-solid fa-calendar-days" style="color:var(--accent)"></i> Срок обучения (месяцев)</label>
+        <input class="form-input" type="number" id="user-months" min="1" max="60" placeholder="Например: 6" oninput="updateAvgCheckHint()">
+        <input type="hidden" id="user-end-date">
+      </div>
+    </div>
+    <div class="form-row" id="user-payment-amount-group">
+      <div class="form-group">
+        <label class="form-label"><i class="fa-solid fa-money-bill" style="color:var(--green)"></i> Сумма оплаты (сом)</label>
+        <input class="form-input" type="number" id="user-payment-amount" min="0" placeholder="0" oninput="updateAvgCheckHint()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Средний чек</label>
+        <div class="form-input" id="user-avg-check-hint" style="display:flex;align-items:center;color:var(--muted);background:var(--surface2)">—</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Логин *</label><input class="form-input" id="user-login" placeholder="login"></div>
+      <div class="form-group"><label class="form-label">Пароль <span id="user-pass-hint" style="color:var(--muted)">(пусто = не менять)</span></label><input class="form-input" type="password" id="user-pass"></div>
+    </div>
+    <!-- Предметы для учителей -->
+    <div id="user-subjects-wrap" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Предметы (выберите)</label>
+        <div class="subjects-picker" id="user-subjects-picker"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('user')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveUser()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- COURSE -->
+<div class="overlay" id="ov-course">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="course-modal-title">Добавить курс</div><div class="modal-close" onclick="closeModal('course')">✕</div></div>
+    <input type="hidden" id="course-id">
+    <div class="form-group"><label class="form-label">Название *</label><input class="form-input" id="course-name" placeholder="Английский язык"></div>
+    <div class="form-group"><label class="form-label">Описание</label><textarea class="form-input" id="course-desc" rows="2"></textarea></div>
+    <div class="form-group"><label class="form-label">Цвет</label><div style="display:flex;gap:7px;flex-wrap:wrap" id="course-color-picker"></div></div>
+    <div class="form-group"><label class="form-label">Иконка</label><div style="display:flex;gap:6px;flex-wrap:wrap" id="course-icon-picker"></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('course')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveCourse()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- GROUP -->
+<div class="overlay" id="ov-group">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title" id="group-modal-title">Создать группу</div><div class="modal-close" onclick="closeModal('group')">✕</div></div>
+    <input type="hidden" id="group-id">
+    <div class="form-group"><label class="form-label">Название *</label><input class="form-input" id="group-name" placeholder="Английский — Утро — A1"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Курс *</label><select class="form-input" id="group-course"></select></div>
+      <div class="form-group"><label class="form-label">Преподаватель</label><select class="form-input" id="group-teacher"><option value="">— Не назначен —</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Уровень</label><input class="form-input" id="group-level" placeholder="A1, Начальный..."></div>
+      <div class="form-group"><label class="form-label">Макс. студентов</label><input class="form-input" type="number" id="group-max" value="20" min="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Стоимость в месяц (сом)</label><input class="form-input" type="number" id="group-price" placeholder="0" min="0"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('group')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveGroup()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+<div class="overlay" id="ov-schedule">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="sched-modal-title">Добавить занятие</div><div class="modal-close" onclick="closeModal('schedule')">✕</div></div>
+    <input type="hidden" id="sched-id">
+    <div class="form-group"><label class="form-label">Группа *</label><select class="form-input" id="sched-group"></select></div>
+    <div class="form-group"><label class="form-label">Преподаватель</label><select class="form-input" id="sched-teacher"><option value="">— Не назначен —</option></select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">День недели *</label>
+        <select class="form-input" id="sched-day">
+          <option value="1">Понедельник</option><option value="2">Вторник</option><option value="3">Среда</option>
+          <option value="4">Четверг</option><option value="5">Пятница</option><option value="6">Суббота</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Предмет</label><input class="form-input" id="sched-subject" placeholder="Математика..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Начало *</label><input class="form-input" type="time" id="sched-start" value="09:00"></div>
+      <div class="form-group"><label class="form-label">Конец *</label><input class="form-input" type="time" id="sched-end" value="10:30"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Кабинет</label><input class="form-input" id="sched-room" placeholder="Кабинет 101"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="sched-del-btn" style="display:none" onclick="deleteScheduleSlot()"><i class="fa-solid fa-trash"></i></button>
+      <button class="btn btn-outline" onclick="closeModal('schedule')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveScheduleSlot()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD TO GROUP -->
+<div class="overlay" id="ov-add-to-group">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title">Добавить студента в группу</div><div class="modal-close" onclick="closeModal('add-to-group')">✕</div></div>
+    <div class="form-group"><label class="form-label">Поиск</label><input class="form-input" id="atg-search" placeholder="Имя, фамилия или логин..." oninput="filterAtgList(this.value)"></div>
+    <div id="atg-list" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- AVATAR -->
+<div class="overlay" id="ov-avatar">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header"><div class="modal-title"><i class="fa-solid fa-camera"></i> Фото профиля</div><div class="modal-close" onclick="closeModal('avatar')">✕</div></div>
+    <div class="av-upload-wrap">
+      <div class="av-preview" id="av-preview" onclick="document.getElementById('av-file').click()"></div>
+      <input type="file" id="av-file" accept="image/*" style="display:none" onchange="onAvatarSelected(this)">
+      <p style="font-size:12px;color:var(--muted);text-align:center">Нажмите на фото чтобы выбрать</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" id="av-colors"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('avatar')">Отмена</button>
+      <button class="btn btn-primary" onclick="uploadAvatar()"><i class="fa-solid fa-upload"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT EDIT -->
+<div class="overlay" id="ov-about">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title"><i class="fa-solid fa-pen"></i> Редактировать информацию</div><div class="modal-close" onclick="closeModal('about')">✕</div></div>
+    <div class="form-group"><label class="form-label">Название организации *</label><input class="form-input" id="ab-name" placeholder="Учебный центр"></div>
+    <div class="form-group"><label class="form-label">Слоган</label><input class="form-input" id="ab-slogan" placeholder="Качественное образование"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Директор</label><input class="form-input" id="ab-director" placeholder="ФИО директора"></div>
+      <div class="form-group"><label class="form-label">Год основания</label><input class="form-input" id="ab-founded" type="number" placeholder="2020"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Адрес</label><input class="form-input" id="ab-address" placeholder="г. Бишкек, ул. ..."></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="ab-phone" placeholder="+996 ..."></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="ab-email" type="email" placeholder="info@..."></div>
+    </div>
+    <div class="form-group"><label class="form-label">Сайт</label><input class="form-input" id="ab-website" placeholder="https://..."></div>
+    <div class="form-group"><label class="form-label">Описание</label><textarea class="form-input" id="ab-desc" rows="3" placeholder="О нашем центре..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('about')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveAbout()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUBJECT MODAL -->
+<div class="overlay" id="ov-subject">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title" id="subject-modal-title">Добавить предмет</div><div class="modal-close" onclick="closeModal('subject')">✕</div></div>
+    <input type="hidden" id="subject-id">
+    <div class="form-group"><label class="form-label">Название предмета *</label><input class="form-input" id="subject-name" placeholder="Например: Английский язык" onkeydown="if(event.key==='Enter')saveSubject()"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('subject')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveSubject()"><i class="fa-solid fa-floppy-disk"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="overlay" id="ov-confirm">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i class="fa-solid fa-triangle-exclamation" style="font-size:44px;color:var(--yellow)"></i></div>
+    <div class="confirm-title" id="confirm-title">Подтверждение</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="btn btn-danger" onclick="confirmAction()">Подтвердить</button>
+      <button class="btn btn-outline" onclick="closeModal('confirm')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/attendance.js"></script>
+  <script src="js/groups.js"></script>
+  <script src="js/finance.js"></script>
+  <script src="js/students.js"></script>
+  <script src="js/schedule.js"></script>
+  <script src="js/profile.js"></script>
+  <script src="js/app-init.js"></script>
+</body>
+</html>
