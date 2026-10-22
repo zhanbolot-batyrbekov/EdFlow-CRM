@@ -59,3 +59,7 @@
     ├── profile.js       # Настройки профиля и аватарки
     └── app-init.js      # Точка входа, роутинг и инициализация приложения
 ```
+👨‍💻 Автор
+Жанболот Батырбеков (Zhanbolot Batyrbekov)
+GitHub: @gamesplay22050-afk
+LinkedIn: Zhanbolot Batyrbekov
