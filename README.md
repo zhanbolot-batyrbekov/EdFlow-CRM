@@ -65,4 +65,3 @@
 **Жанболот Батырбеков (Zhanbolot Batyrbekov)**
 - **GitHub:** [@gamesplay22050-afk](https://github.com/gamesplay22050-afk)
 - **LinkedIn:** [Zhanbolot Batyrbekov](https://www.linkedin.com)
--
