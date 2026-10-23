@@ -132,75 +132,132 @@ function startApp() {
 }
 
 // ── Дашборд ───────────────────────────────────────────────
+// renderDashboard вызывается goPage-диспетчером и напрямую из startApp.
+// Содержимое пишется в #dashboard-content, который есть в каждой роли.
 async function renderDashboard() {
-  goPage('dashboard');
-  const data = await api('dashboard').catch(() => null);
-  if (!data) return;
-  if (session.role === 'admin')   renderAdminDash(data);
-  if (session.role === 'teacher') renderTeacherDash(data);
-  if (session.role === 'student') renderStudentDash(data);
+  const wrap = document.getElementById('dashboard-content');
+  if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+  try {
+    const data = await api('dashboard');
+    if      (session.role === 'student') renderStudentDash(data);
+    else if (session.role === 'teacher') renderTeacherDash(data);
+    else                                 renderAdminDash(data);
+  } catch(e) {
+    if (wrap) wrap.innerHTML = `<div class="empty"><div class="empty-msg">Ошибка: ${esc(e.message)}</div></div>`;
+  }
 }
 
 function renderStudentDash(data) {
-  const schedEl = document.getElementById('student-dash-schedule');
-  if (schedEl) schedEl.innerHTML = renderSchedItems(data.schedule||[]);
+  const myGroups = data.groups || [];
+  const attPct   = data.att_total > 0 ? Math.round(data.att_present / data.att_total * 100) : null;
+  let html = `<div class="stats-grid">
+    <div class="stat-card"><i class="fa-solid fa-people-group" style="font-size:24px;color:var(--accent)"></i>
+      <div class="stat-val">${myGroups.length}</div><div class="stat-lbl">Моих групп</div></div>
+    <div class="stat-card"><i class="fa-solid fa-calendar-check" style="font-size:24px;color:var(--green)"></i>
+      <div class="stat-val">${attPct !== null ? attPct + '%' : '—'}</div>
+      <div class="stat-lbl">Посещаемость</div>
+      <div class="stat-sub">${data.att_present}/${data.att_total} дней</div></div>
+    <div class="stat-card"><i class="fa-solid fa-money-bill" style="font-size:24px;color:var(--yellow)"></i>
+      <div class="stat-val ${data.paid > 0 ? '' : 'b-red-text'}">${data.paid > 0 ? 'Оплачено' : 'Не оплачено'}</div>
+      <div class="stat-lbl">Оплата</div></div>
+  </div>`;
+  if (myGroups.length) {
+    html += `<div class="card"><div class="card-header"><div class="card-title"><i class="fa-solid fa-people-group" style="color:var(--accent)"></i> Мои группы</div></div>`;
+    myGroups.forEach(g => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="width:38px;height:38px;border-radius:10px;background:${safeColor(g.course_color,'#2563eb')};display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">
+          <i class="fa-solid ${safeIconClass(g.course_icon,'fa-book')}"></i></div>
+        <div><div style="font-weight:600">${esc(g.name)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(g.course_name||'')} · ${esc(g.teacher_name||'')}</div>
+        </div></div>`;
+    });
+    html += `</div>`;
+  }
+  html += renderScheduleBlock(null, true);
+  document.getElementById('dashboard-content').innerHTML = html;
+  loadMyScheduleBlock();
 }
 
 function renderTeacherDash(data) {
-  const myGroups = (data.my_groups||[]);
-  const el = document.getElementById('teacher-dash-groups');
-  if (!el) return;
-  el.innerHTML = myGroups.length
-    ? myGroups.map(g => {
-        const color = safeColor(g.course_color,'#2563eb'), icon = safeIconClass(g.course_icon,'fa-book');
-        return `<div class="c-card" onclick="openGroupDetail(${g.id})" style="cursor:pointer">
-          <div class="c-card-header">
-            <div class="c-card-icon" style="background:${color}"><i class="fa-solid ${icon}"></i></div>
-            <div style="flex:1"><div style="font-weight:600">${esc(g.name)}</div>
-              <div style="font-size:11px;color:var(--muted)">${g.student_count||0} студентов</div></div>
-          </div>
-        </div>`;
-      }).join('')
-    : '<div class="empty"><div class="empty-msg">Группы не назначены</div></div>';
+  const myGroups = data.groups || [];
+  let html = `<div class="stats-grid">
+    <div class="stat-card"><i class="fa-solid fa-people-group" style="font-size:24px;color:var(--accent)"></i>
+      <div class="stat-val">${myGroups.length}</div><div class="stat-lbl">Моих групп</div></div>
+    <div class="stat-card"><i class="fa-solid fa-user-graduate" style="font-size:24px;color:var(--green)"></i>
+      <div class="stat-val">${myGroups.reduce((s,g) => s + (parseInt(g.student_count)||0), 0)}</div>
+      <div class="stat-lbl">Студентов</div></div>
+  </div>`;
+  if (myGroups.length) {
+    html += `<div class="card"><div class="card-header"><div class="card-title"><i class="fa-solid fa-people-group" style="color:var(--accent)"></i> Мои группы</div></div>`;
+    myGroups.forEach(g => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openGroupDetail(${g.id})">
+        <div style="width:38px;height:38px;border-radius:10px;background:${safeColor(g.course_color,'#2563eb')};display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">
+          <i class="fa-solid ${safeIconClass(g.course_icon,'fa-book')}"></i></div>
+        <div style="flex:1"><div style="font-weight:600">${esc(g.name)}</div>
+          <div style="font-size:11px;color:var(--muted)">${g.student_count||0} студентов</div>
+        </div></div>`;
+    });
+    html += `</div>`;
+  }
+  html += renderScheduleBlock(null, true);
+  document.getElementById('dashboard-content').innerHTML = html;
+  loadMyScheduleBlock();
 }
 
 function renderAdminDash(data) {
-  // Экспирирующие студенты
-  const expEl = document.getElementById('dash-expiring');
-  if (expEl) {
-    const exp = students.filter(s => {
-      const d = parseLocalDate(s.end_date);
-      return d && d.getTime() <= Date.now()+30*24*3600*1000 && d.getTime() >= Date.now();
-    });
-    expEl.innerHTML = exp.length
-      ? exp.map(s => {
-          const init = ((s.fname||'?')[0]+((s.lname||'')[0]||'')).toUpperCase();
-          const d    = parseLocalDate(s.end_date);
-          const days = d ? Math.ceil((d.getTime()-Date.now())/(1000*3600*24)) : null;
-          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-            <div class="av" style="background:${safeColor(s.av_color,avColor(s.fname))};width:32px;height:32px;font-size:11px">${init}</div>
-            <div style="flex:1">
-              <div style="font-weight:600;font-size:13px">${esc(s.fname)} ${esc(s.lname)}</div>
-              <div style="font-size:11px;color:var(--muted)">Истекает: ${fmtDate(s.end_date)}</div>
-            </div>
-            ${days!==null?`<span class="badge ${days<=7?'b-red':'b-yellow'}">${days} дн.</span>`:''}
-          </div>`;
-        }).join('')
-      : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:12px">Истекающих нет</div>';
-  }
+  let html = `<div class="stats-grid">
+    <div class="stat-card"><i class="fa-solid fa-user-graduate" style="font-size:24px;color:var(--accent)"></i>
+      <div class="stat-val" style="color:var(--accent)">${data.students}</div><div class="stat-lbl">Студентов</div></div>
+    <div class="stat-card"><i class="fa-solid fa-chalkboard-user" style="font-size:24px;color:var(--green)"></i>
+      <div class="stat-val" style="color:var(--green)">${data.teachers}</div><div class="stat-lbl">Преподавателей</div></div>
+    <div class="stat-card"><i class="fa-solid fa-people-group" style="font-size:24px;color:var(--purple)"></i>
+      <div class="stat-val" style="color:var(--purple)">${data.groups}</div><div class="stat-lbl">Групп</div></div>
+    <div class="stat-card"><i class="fa-solid fa-receipt" style="font-size:24px;color:var(--yellow)"></i>
+      <div class="stat-val" style="color:var(--yellow);font-size:16px">${fmtMoney(data.avg_check)}</div>
+      <div class="stat-lbl">Средний чек</div>
+      <div class="stat-sub">${data.paid_count} оплатили</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><i class="fa-solid fa-money-bill-wave" style="color:var(--green)"></i> Финансы — ${data.month}</div>
+        <button class="btn btn-sm btn-outline" onclick="goPage('finance',null,'Финансы')">Подробнее</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="profile-stat">
+          <div class="profile-stat-val" style="color:var(--green)">${fmtMoney(data.revenue)}</div>
+          <div class="profile-stat-lbl">Получено</div></div>
+        <div class="profile-stat">
+          <div class="profile-stat-val" style="color:var(--red)">${fmtMoney((data.expected||0)-(data.revenue||0))}</div>
+          <div class="profile-stat-lbl">Не оплачено</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="fa-solid fa-clock" style="color:var(--yellow)"></i> Истекает скоро</div></div>
+      ${(data.ending_soon||[]).length
+        ? data.ending_soon.map(s => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+            <span>${esc(s.fname)} ${esc(s.lname)}</span>
+            <span class="badge b-yellow">${fmtDate(s.end_date)}</span></div>`).join('')
+        : '<div style="color:var(--muted);font-size:12px;padding:10px 0">Нет</div>'}
+    </div>
+  </div>`;
+  document.getElementById('dashboard-content').innerHTML = html;
+}
 
-  // Сводка
-  const stats = [
-    { icon:'fa-user-graduate', color:'var(--accent)', val: students.length, lbl:'Студентов' },
-    { icon:'fa-chalkboard-user',color:'var(--green)', val: teachers.length, lbl:'Преподавателей' },
-    { icon:'fa-people-group',  color:'var(--purple)', val: groups.filter(g=>g.is_active==1).length, lbl:'Групп' },
-    { icon:'fa-book',          color:'var(--yellow)', val: courses.length, lbl:'Курсов' },
-  ];
-  const statsEl = document.getElementById('dash-stats');
-  if (statsEl) statsEl.innerHTML = stats.map(s =>
-    `<div class="stat-card"><i class="fa-solid ${s.icon}" style="font-size:24px;color:${s.color}"></i>
-     <div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`
-  ).join('');
+// ── Блок расписания на дашборде ───────────────────────────
+function renderScheduleBlock(sched, loading = false) {
+  return `<div class="card" id="my-sched-card">
+    <div class="card-header"><div class="card-title"><i class="fa-solid fa-calendar-days" style="color:var(--accent)"></i> Моё расписание</div></div>
+    <div id="my-sched-content">${loading
+      ? '<div style="text-align:center;padding:20px;color:var(--muted)"><i class="fa-solid fa-spinner fa-spin"></i></div>'
+      : renderSchedItems(sched)}</div></div>`;
+}
+async function loadMyScheduleBlock() {
+  try {
+    const s  = await api('my_schedule');
+    const el = document.getElementById('my-sched-content');
+    if (el) el.innerHTML = renderSchedItems(s);
+  } catch(_) {}
 }
 
 // ── Инициализация при старте страницы ─────────────────────
