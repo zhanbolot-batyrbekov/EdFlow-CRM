@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS payments (
   months_count INT NOT NULL DEFAULT 1,
   paid       TINYINT(1)  NOT NULL DEFAULT 0,
   amount     DECIMAL(10,2) DEFAULT 0,
-  paid_at    TIMESTAMP   DEFAULT NULL,
+  paid_at TIMESTAMP NULL DEFAULT NULL,
   note       VARCHAR(255) DEFAULT '',
   UNIQUE KEY uq_pay (student_id, group_id, month),
   FOREIGN KEY (student_id) REFERENCES users(id)      ON DELETE CASCADE,
